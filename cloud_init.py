@@ -8,52 +8,37 @@
 # of the virtual machine.
 #
 # TODO: Need a way to retrieve the URL of the callback server from the
-# instance metadata so its not hard coded into the script.
+# instance metadata so its not hard coded into the script. Best thing I have so
+# far is a config file outside of Python scripts read at runtime.
 #
 # TODO: Password retrieval isn't working right now, so I have to default to a
 # random root password. 
 #
 # IMPORTANT: This only works for CentOS 6.x now
-import requests
-import simplejson as json
+from lib.utils import Utils
 from lib.root import RootPasswd
 from lib.netconf import NetConf
-from lib.error import Error
+from lib.admin import CloudAdmin
+from lib.growpart import GrowPart
 
-# Callback server/port
-cbs = '192.168.213.70:8080'
+# Initialize the cloud_init classes
+utils = Utils()
+admin = CloudAdmin(utils)
+nconf = NetConf(utils)
+gpart = GrowPart(utils)
+rpass = RootPasswd(utils)
 
-# Error code handling
-err = Error(cbs)
+# Set the root password
+rpass.update()
 
-# Metadata API URL and contents
-meta_url      = 'http://169.254.169.254/openstack/latest'
+# Set the network configuration
+nconf.update()
 
-# Try to get the meta data content
-try:
-    meta_data_rsp = requests.get(meta_url + '/meta_data.json')
-except:
-    err.response(1)
-    
-# Parse the response string into a JSON object
-meta_json     = meta_data_rsp.json()
-meta_pass     = None
+# Set up the cloud administrator
+admin.create_user()
 
-# Class instances
-rp = RootPasswd(meta_pass)
-nc = NetConf('eth0', 'eth1', '/etc/sysconfig/network')
+# Grow the root partition
+gpart.extend_root()
 
-# Run the system prep commands
-root_passwd = rp.update()
-ip_config   = nc.update(meta_json['name'])
-
-# Define the callback parameters
-callback_rsp = {'status': 'success',
-                'host': meta_json['name'],
-                'uuid': meta_json['uuid'],
-                'password': root_passwd,
-                'ip_pub': ip_config['pub_addr'],
-                'ip_priv': ip_config['priv_addr']}
-
-# Send the response to the callback handler and store the server response
-server_response = requests.get('http://' + cbs + '/cloud_callback/', params = callback_rsp)
+# Send the callback response
+utils.send_callback()
