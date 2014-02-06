@@ -1,11 +1,11 @@
-#!/usr/bin/python
 import requests
 
 # Error Code Handling \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ #
 class Error():
     
     # Initialize the class
-    def __init__(self, callback_host):
+    def __init__(self, callback_host, logger):
+        self.log = logger
         self.ec = 0
         self.em = 'An unknown error occured when building the instance'
         self.cb = callback_host
@@ -15,6 +15,7 @@ class Error():
         
         # Return the error the the callback server and exit
         def err_callback(self, msg):
+            self.log.error(msg)
             err_response = {'error': msg}
             requests.get(self.cb, params = err_response)
             exit()
@@ -27,4 +28,4 @@ class Error():
                  4: 'Unsupported Linux distribution: ' + extra}
         
         # Return the error response to the callback server
-        err_callback(codes[code])
+        err_callback(self, codes[code])

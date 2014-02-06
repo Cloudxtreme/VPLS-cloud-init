@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # VPLS Cloud Init Python Script
 #
 # This is a self destructing script that runs on the first boot of an instance
@@ -28,17 +26,19 @@ nconf = NetConf(utils)
 gpart = GrowPart(utils)
 rpass = RootPasswd(utils)
 
-# Set the root password
-rpass.update()
+# Get the instance mode
+mode = utils.get_mode()
 
-# Set the network configuration
-nconf.update()
-
-# Set up the cloud administrator
-admin.create_user()
-
-# Grow the root partition
-gpart.extend_root()
-
-# Send the callback response
-utils.send_callback()
+# If initializing the instance
+if mode == 'init':
+    gpart.extend_root()         # Extend the root partition
+    utils.init_complete()       # Set the cloud_mode marker and reboot
+    
+# If rebooting the node after initialization
+if mode == 'reboot':
+    gpart.resize_root()         # Resize the new root partition
+    rpass.update()              # Set a random root password
+    nconf.update()              # Update network configuration
+    admin.create_user()         # Create the cloud administrator
+    utils.reboot_complete()     # Update the cloud_mode marker
+    utils.send_callback()       # Send the callback response

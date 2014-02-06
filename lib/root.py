@@ -1,10 +1,7 @@
-#!/usr/bin/python
 import os
 import re
-import crypt
 import shutil
 from utils import Utils
-from error import Error
 
 # Set Root Password \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ #
 class RootPasswd():
@@ -12,7 +9,6 @@ class RootPasswd():
     # Initialize the class
     def __init__(self, utils):
         self.utils = utils
-        self.error = Error(self.utils.cbs)
         self.rp    = self.utils.meta_pass
         self.sm    = '/etc/shadow'
         self.sa    = '/etc/shadow-'
@@ -43,9 +39,7 @@ class RootPasswd():
         
         # Linux root password
         if self.utils.sys_type == 'Linux':
-            if not self.rp: self.rp = self.utils.rstring(12)
-            root_salt       = self.utils.rstring(16)
-            root_hash       = crypt.crypt(self.rp, '$6$' + root_salt)
+            root_pass = self.utils.gen_passwd(self.rp)
             
             # Get the shadow files ready
             self._sprep()
@@ -55,8 +49,9 @@ class RootPasswd():
             sa_fc = open(self.sa, 'r+').read()
             
             # Update the root password
+            self.utils.log.info('Updating root password hash in: ' + self.sm + ' and ' + self.sa)
             pass_rx = re.compile('(^root:)[^:]*(:.*$)', re.MULTILINE)
-            shadow_new = pass_rx.sub(r'\g<1>' + root_hash + r'\g<2>', sm_fc)
+            shadow_new = pass_rx.sub(r'\g<1>' + root_pass['hash'] + r'\g<2>', sm_fc)
             
             # Write the the files
             open(self.sm, 'r+').write(shadow_new)
@@ -64,4 +59,4 @@ class RootPasswd():
             
             # Clean up the shadow files and return the root password
             self._sclean()
-            self.utils.adm_pass = self.rp
+            self.utils.passwd = root_pass['clear']
